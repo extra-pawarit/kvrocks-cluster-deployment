@@ -1,0 +1,29 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "kvrocks-cluster.fullname" . }}-headless
+  labels:
+    {{- include "kvrocks-cluster.labels" . | nindent 4 }}
+spec:
+  clusterIP: None
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: 6379
+      name: redis
+  selector:
+    {{- include "kvrocks-cluster.selectorLabels" . | nindent 4 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "kvrocks-cluster.fullname" . }}
+  labels:
+    {{- include "kvrocks-cluster.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: 6379
+      name: redis
+  selector:
+    {{- include "kvrocks-cluster.selectorLabels" . | nindent 4 }}

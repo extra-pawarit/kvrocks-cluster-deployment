@@ -1,0 +1,91 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  # ชื่อ StatefulSet → เรียก Function จาก _helpers.tpl → ได้ "kvrocks-cluster"
+  name: {{ include "kvrocks-cluster.fullname" . }}
+spec:
+  # ชื่อ Headless Service ที่ StatefulSet จะใช้สำหรับ DNS
+  # → "kvrocks-cluster-headless"
+  serviceName: {{ include "kvrocks-cluster.fullname" . }}-headless
+  
+  # จำนวน Pod ที่ต้องการ → ดึงจาก values.yaml → 4
+  replicas: {{ .Values.replicaCount }}
+  
+  selector:
+    matchLabels:
+      # เรียก Function selectorLabels จาก _helpers.tpl แล้วเยื้อง 6 ช่อง
+      # → app.kubernetes.io/name: kvrocks-cluster
+      # → app.kubernetes.io/instance: kvrocks-cluster
+      {{- include "kvrocks-cluster.selectorLabels" . | nindent 6 }}
+  
+  template:
+    metadata:
+      labels:
+        # Label สำหรับ Pod (เหมือนกับ selector) เยื้อง 8 ช่อง
+        {{- include "kvrocks-cluster.selectorLabels" . | nindent 8 }}
+    spec:
+      containers:
+      - name: kvrocks
+        # Image ที่จะใช้ → ดึง repository และ tag จาก values.yaml
+        # → "apache/kvrocks:2.8.0"
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+        
+        # Pull Policy → ดึงจาก values.yaml → "IfNotPresent"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        
+        ports:
+        - containerPort: 6379
+          name: redis
+        
+        resources:
+          # แปลง resources จาก values.yaml เป็น YAML แล้วเยื้อง 10 ช่อง
+          # → requests: cpu: 100m, memory: 512Mi
+          # → limits: cpu: 500m, memory: 512Mi
+          {{- toYaml .Values.resources | nindent 10 }}
+        
+        volumeMounts:
+        # Mount ConfigMap (kvrocks.conf) แบบ Read-Only
+        - name: config
+          mountPath: /var/run/kvrocks-config
+        
+        # Mount PersistentVolume สำหรับเก็บข้อมูล (Read-Write)
+        - name: data
+          mountPath: /var/lib/kvrocks
+        
+        # Mount Init Script สำหรับ Initialize Cluster
+        - name: init-script
+          mountPath: /var/run/kvrocks-init-script
+        
+        # คำสั่งที่รันเมื่อ Container เริ่มต้น
+        # 1. Copy config จาก Read-Only Volume ไปยัง Data Volume (เพื่อให้ KvRocks เขียนได้)
+        # 2. รัน KvRocks พร้อม Config ที่ Copy ไว้
+        command: ["/bin/sh"]
+        args: ["-c", "cp /var/run/kvrocks-config/kvrocks.conf /var/lib/kvrocks/kvrocks.conf && exec kvrocks -c /var/lib/kvrocks/kvrocks.conf"]
+      
+      volumes:
+      # Volume จาก ConfigMap (kvrocks.conf)
+      - name: config
+        configMap:
+          # ชื่อ ConfigMap → "kvrocks-cluster-config"
+          name: {{ include "kvrocks-cluster.fullname" . }}-config
+      
+      # Volume จาก ConfigMap (init.sh)
+      - name: init-script
+        configMap:
+          # ชื่อ ConfigMap → "kvrocks-cluster-init-script"
+          name: {{ include "kvrocks-cluster.fullname" . }}-init-script
+          # ตั้งค่า Permission ให้ Execute ได้ (755)
+          defaultMode: 0755
+  
+  # Template สำหรับสร้าง PersistentVolumeClaim อัตโนมัติสำหรับแต่ละ Pod
+  volumeClaimTemplates:
+  - metadata:
+      name: data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      # Storage Class → ดึงจาก values.yaml → "hostpath"
+      storageClassName: {{ .Values.storage.storageClassName }}
+      resources:
+        requests:
+          # ขนาด Storage → ดึงจาก values.yaml → "1Gi"
+          storage: {{ .Values.storage.size }}

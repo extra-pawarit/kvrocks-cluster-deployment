@@ -1,0 +1,30 @@
+# values.yaml
+replicaCount: 4 # 2 Masters + 2 Replicas
+
+image:
+  repository: apache/kvrocks
+  tag: 2.8.0
+  pullPolicy: IfNotPresent
+
+password: "kvrocks-local-2024"
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 512Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+service:
+  port: 6379
+
+storage:
+  size: 1Gi
+  storageClassName: hostpath
+
+# Cluster configuration
+cluster:
+  enabled: true
+  masterCount: 2
+  replicaCountPerMaster: 1

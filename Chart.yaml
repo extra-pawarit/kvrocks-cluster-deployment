@@ -1,0 +1,6 @@
+apiVersion: v2
+name: kvrocks-cluster
+description: A custom Helm chart for KvRocks Cluster (2 masters, 2 replicas)
+type: application
+version: 0.1.0
+appVersion: "2.8.0"

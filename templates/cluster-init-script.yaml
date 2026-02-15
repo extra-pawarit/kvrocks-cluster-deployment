@@ -1,0 +1,64 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "kvrocks-cluster.fullname" . }}-init-script
+data:
+  init.sh: |
+    #!/bin/sh
+    
+    # Configuration
+    SVC_NAME="{{ include "kvrocks-cluster.fullname" . }}-headless"
+    NAMESPACE=$(cat /var/run/secrets/kubernetes.io/serviceaccount/namespace)
+    PASSWORD="{{ .Values.password }}"
+    
+    # Helper to run redis-cli
+    run_cli() {
+        _HOST=$1
+        shift
+        redis-cli -h $_HOST -p 6379 -a "$PASSWORD" --no-auth-warning "$@"
+    }
+    
+    echo "Starting KvRocks cluster initialization using CLUSTERX..."
+    
+    # 1. Get IPs and Set Node IDs
+    echo "Assigning Node IDs..."
+    ID0="0000000000000000000000000000000000000000"
+    ID1="1111111111111111111111111111111111111111"
+    ID2="2222222222222222222222222222222222222222"
+    ID3="3333333333333333333333333333333333333333"
+    
+    HOST0="{{ include "kvrocks-cluster.fullname" . }}-0.${SVC_NAME}.${NAMESPACE}.svc.cluster.local"
+    HOST1="{{ include "kvrocks-cluster.fullname" . }}-1.${SVC_NAME}.${NAMESPACE}.svc.cluster.local"
+    HOST2="{{ include "kvrocks-cluster.fullname" . }}-2.${SVC_NAME}.${NAMESPACE}.svc.cluster.local"
+    HOST3="{{ include "kvrocks-cluster.fullname" . }}-3.${SVC_NAME}.${NAMESPACE}.svc.cluster.local"
+    
+    IP0=$(getent hosts $HOST0 | awk '{ print $1 }')
+    IP1=$(getent hosts $HOST1 | awk '{ print $1 }')
+    IP2=$(getent hosts $HOST2 | awk '{ print $1 }')
+    IP3=$(getent hosts $HOST3 | awk '{ print $1 }')
+    
+    run_cli $HOST0 CLUSTERX SETNODEID $ID0
+    run_cli $HOST1 CLUSTERX SETNODEID $ID1
+    run_cli $HOST2 CLUSTERX SETNODEID $ID2
+    run_cli $HOST3 CLUSTERX SETNODEID $ID3
+    
+    # 2. Build topology string
+    # Format: id ip port role master_id slots
+    # master_id is "-" for masters
+    NODES_CONF="$ID0 $IP0 6379 master - 0-8191
+    $ID1 $IP1 6379 master - 8192-16383
+    $ID2 $IP2 6379 slave $ID0
+    $ID3 $IP3 6379 slave $ID1"
+    
+    echo "Applying topology..."
+    # version 1, force yes
+    # Note: Using printf to ensure newlines are handled correctly in the command
+    CONF_STR=$(printf "$NODES_CONF")
+    
+    run_cli $HOST0 CLUSTERX SETNODES "$CONF_STR" 1
+    run_cli $HOST1 CLUSTERX SETNODES "$CONF_STR" 1
+    run_cli $HOST2 CLUSTERX SETNODES "$CONF_STR" 1
+    run_cli $HOST3 CLUSTERX SETNODES "$CONF_STR" 1
+    
+    echo "Cluster initialization complete!"
+    run_cli $HOST0 CLUSTER INFO
