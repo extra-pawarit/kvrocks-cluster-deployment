@@ -2,16 +2,18 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: {{ include "kvrocks-cluster.fullname" . }}-config
+  labels:
+    {{- include "kvrocks-cluster.labels" . | nindent 4 }}
 data:
   kvrocks.conf: |
-    bind 0.0.0.0
-    port 6379
-    cluster-enabled yes
-    requirepass {{ .Values.password }}
-    masterauth {{ .Values.password }}
-    dir /var/lib/kvrocks
-    rocksdb.write_buffer_size 64
-    rocksdb.max_write_buffer_number 4
-    rocksdb.target_file_size_base 64
-    rocksdb.max_background_compactions 2
-    rocksdb.max_background_flushes 1
+    bind {{ .Values.kvrocksConfig.bind }}
+    port {{ .Values.kvrocksConfig.port }}
+    cluster-enabled {{ .Values.kvrocksConfig.cluster_enabled }}
+    requirepass __KVR_PASSWORD__
+    masterauth __KVR_PASSWORD__
+    dir {{ .Values.kvrocksConfig.dir }}
+    rocksdb.write_buffer_size {{ .Values.kvrocksConfig.rocksdb_write_buffer_size }}
+    rocksdb.max_write_buffer_number {{ .Values.kvrocksConfig.rocksdb_max_write_buffer_number }}
+    rocksdb.target_file_size_base {{ .Values.kvrocksConfig.rocksdb_target_file_size_base }}
+    rocksdb.max_background_compactions {{ .Values.kvrocksConfig.rocksdb_max_background_compactions }}
+    rocksdb.max_background_flushes {{ .Values.kvrocksConfig.rocksdb_max_background_flushes }}

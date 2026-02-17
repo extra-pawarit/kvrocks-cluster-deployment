@@ -6,7 +6,19 @@ image:
   tag: 2.8.0
   pullPolicy: IfNotPresent
 
-password: "kvrocks-local-2024"
+# authentication
+auth:
+  # set to true if you are using Bitnami Sealed Secrets or an existing secret
+  # if true, the chart will NOT create a new Secret object
+  useExistingSecret: false
+  # name of the existing secret (e.g., created by SealedSecret)
+  existingSecret: ""
+  # key in the secret that contains the password
+  secretKey: "password"
+  # plaintext password (only used if useExistingSecret is false)
+  # WARNING: Hardcoding password here is insecure for production. 
+  # Use Sealed Secrets or Vault for production environments.
+  password: "kvrocks-local-2024"
 
 resources:
   requests:
@@ -17,7 +29,11 @@ resources:
     memory: 512Mi
 
 service:
+  type: ClusterIP
   port: 6379
+  annotations: {}
+    # example for prometheus:
+    # prometheus.io/scrape: "true"
 
 storage:
   size: 1Gi
@@ -28,3 +44,15 @@ cluster:
   enabled: true
   masterCount: 2
   replicaCountPerMaster: 1
+
+# KvRocks Specific Configuration
+kvrocksConfig:
+  bind: "0.0.0.0"
+  port: 6379
+  cluster_enabled: "yes"
+  dir: "/var/lib/kvrocks"
+  rocksdb_write_buffer_size: 64
+  rocksdb_max_write_buffer_number: 4
+  rocksdb_target_file_size_base: 64
+  rocksdb_max_background_compactions: 2
+  rocksdb_max_background_flushes: 1

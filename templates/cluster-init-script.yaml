@@ -20,7 +20,7 @@ data:
     
     echo "Starting KvRocks cluster initialization using CLUSTERX..."
     
-    # 1. Get IPs and Set Node IDs
+    # 1. Get IPs and Set Node IDs (Hexadecimal 40)
     echo "Assigning Node IDs..."
     ID0="0000000000000000000000000000000000000000"
     ID1="1111111111111111111111111111111111111111"
